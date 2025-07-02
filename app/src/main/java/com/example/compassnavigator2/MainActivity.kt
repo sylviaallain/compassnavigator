@@ -27,6 +27,10 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
     private val directions = arrayOf("N", "NE", "E", "SE", "S", "SW", "W", "NW")
 
+    private var animator: ValueAnimator? = null
+    private var labelWidthPx: Int = 0
+    private var bufferWidthPx: Int = 0
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -35,21 +39,39 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         compassLayout = findViewById(R.id.compassLayout)
         compassScrollView = findViewById(R.id.compassScrollView)
 
-        // Convert a large dp value to pixels so only one label is visible at a time
-        val labelWidthDp = 300f // Wide enough so only one is centered
-        val labelWidthPx = TypedValue.applyDimension(
+        val labelWidthDp = 300f
+        labelWidthPx = TypedValue.applyDimension(
             TypedValue.COMPLEX_UNIT_DIP, labelWidthDp, resources.displayMetrics
         ).toInt()
 
-        directions.forEach { dir ->
-            val label = TextView(this).apply {
-                text = dir
-                setTextColor(Color.WHITE)
-                textSize = 24f
-                textAlignment = TextView.TEXT_ALIGNMENT_CENTER
-                layoutParams = LinearLayout.LayoutParams(labelWidthPx, LinearLayout.LayoutParams.WRAP_CONTENT)
+        compassScrollView.post {
+            bufferWidthPx = compassScrollView.width / 2
+
+            compassLayout.removeAllViews()
+
+            // Add buffer at start (empty space to allow centering first label)
+            val startBuffer = TextView(this).apply {
+                layoutParams = LinearLayout.LayoutParams(bufferWidthPx, LinearLayout.LayoutParams.WRAP_CONTENT)
             }
-            compassLayout.addView(label)
+            compassLayout.addView(startBuffer)
+
+            // Add direction labels
+            directions.forEach { dir ->
+                val label = TextView(this).apply {
+                    text = dir
+                    setTextColor(Color.WHITE)
+                    textSize = 24f
+                    textAlignment = TextView.TEXT_ALIGNMENT_CENTER
+                    layoutParams = LinearLayout.LayoutParams(labelWidthPx, LinearLayout.LayoutParams.WRAP_CONTENT)
+                }
+                compassLayout.addView(label)
+            }
+
+            // Add buffer at end (empty space to allow centering last label)
+            val endBuffer = TextView(this).apply {
+                layoutParams = LinearLayout.LayoutParams(bufferWidthPx, LinearLayout.LayoutParams.WRAP_CONTENT)
+            }
+            compassLayout.addView(endBuffer)
         }
     }
 
@@ -86,25 +108,23 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             headingText.text = "Heading: %.1f°".format(azimuth)
 
             compassScrollView.post {
-                val labelWidth = compassLayout.getChildAt(0)?.width ?: return@post
-                val totalLabels = directions.size
-
-                // Each label represents 360 / totalLabels degrees
-                val degreesPerLabel = 360f / totalLabels
-
-                // Determine which label corresponds to azimuth
+                val degreesPerLabel = 360f / directions.size
                 val indexFloat = azimuth / degreesPerLabel
-                val exactPosition = indexFloat * labelWidth
-                val centerOffset = compassScrollView.width / 2 - labelWidth / 2
 
-                val currentX = compassScrollView.scrollX
-                val targetX = exactPosition.toInt() - centerOffset
+                val exactPosition = indexFloat * labelWidthPx
 
-                ValueAnimator.ofInt(currentX, targetX).apply {
-                    duration = 250L
+                // Scroll calculation: buffer + exactPosition - half screen + half label width
+                val targetX = (bufferWidthPx + exactPosition - compassScrollView.width / 2 + labelWidthPx / 2).toInt()
+
+                val maxScroll = compassLayout.width - compassScrollView.width
+                val safeTargetX = targetX.coerceIn(0, maxScroll)
+
+                animator?.cancel()
+                animator = ValueAnimator.ofInt(compassScrollView.scrollX, safeTargetX).apply {
+                    duration = 200L
                     interpolator = DecelerateInterpolator()
-                    addUpdateListener { animator ->
-                        compassScrollView.scrollTo(animator.animatedValue as Int, 0)
+                    addUpdateListener { anim ->
+                        compassScrollView.scrollTo(anim.animatedValue as Int, 0)
                     }
                     start()
                 }
