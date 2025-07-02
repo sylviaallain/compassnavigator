@@ -12,6 +12,8 @@ import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import android.animation.ValueAnimator
+import android.view.animation.DecelerateInterpolator
 
 class MainActivity : AppCompatActivity(), SensorEventListener {
 
@@ -95,7 +97,17 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                 val exactPosition = indexFloat * labelWidth
                 val centerOffset = compassScrollView.width / 2 - labelWidth / 2
 
-                compassScrollView.smoothScrollTo(exactPosition.toInt() - centerOffset, 0)
+                val currentX = compassScrollView.scrollX
+                val targetX = exactPosition.toInt() - centerOffset
+
+                ValueAnimator.ofInt(currentX, targetX).apply {
+                    duration = 250L
+                    interpolator = DecelerateInterpolator()
+                    addUpdateListener { animator ->
+                        compassScrollView.scrollTo(animator.animatedValue as Int, 0)
+                    }
+                    start()
+                }
             }
         }
     }
