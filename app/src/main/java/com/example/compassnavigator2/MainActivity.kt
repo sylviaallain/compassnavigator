@@ -7,9 +7,11 @@ import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.os.Bundle
+import android.view.View
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import android.widget.FrameLayout
+import kotlin.math.abs
 
 class MainActivity : AppCompatActivity(), SensorEventListener {
 
@@ -20,11 +22,19 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private val labelViews = mutableMapOf<String, TextView>()
     private val labelHeadings = mapOf(
         "N" to 0f,
+        "NE" to 45f,
+        "E" to 90f,
+        "SE" to 135f,
+        "S" to 180f,
+        "SW" to 225f,
+        "W" to 270f,
+        "NW" to 315f
         // Add more here later like: "E" to 90f, "S" to 180f, etc.
     )
 
     private var accelerometerValues = FloatArray(3)
     private var magnetometerValues = FloatArray(3)
+    private val labelVisibility = mutableMapOf<String, Boolean>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -52,6 +62,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                 }
                 compassContainer.addView(labelView)
                 labelViews[label] = labelView
+                labelVisibility[label] = false
             }
         }
     }
@@ -95,16 +106,35 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
                 val labelWidth = labelView.width
                 val centerX = (screenWidth - labelWidth) / 2f
-                val maxOffset = screenWidth / 2f
 
-                // How far the phone is rotated away from this label's target heading
-                val diff = ((targetHeading - azimuth + 540) % 360) - 180  // -180 to +180
+                var screenWidthMultiplier = 4
+                val maxOffset = screenWidth / 2f * screenWidthMultiplier
+
+                val diff = ((targetHeading - azimuth + 540) % 360) - 180
                 val offsetPx = (diff / 180f) * maxOffset
 
-                labelView.animate()
-                    .translationX((centerX + offsetPx).toFloat())
-                    .setDuration(200L)
-                    .start()
+                val isVisible = abs(diff) <= 90f
+                val wasVisible = labelVisibility[label] ?: false
+
+                if (isVisible) {
+                    labelView.visibility = View.VISIBLE
+
+                    if (wasVisible) {
+                        // Animate smoothly
+                        labelView.animate()
+                            .translationX((centerX + offsetPx).toFloat())
+                            .setDuration(75L)
+                            .start()
+                    } else {
+                        // Jump to correct spot instantly
+                        labelView.translationX = (centerX + offsetPx).toFloat()
+                    }
+                } else {
+                    labelView.visibility = View.INVISIBLE
+                }
+
+                // Update visibility state
+                labelVisibility[label] = isVisible
             }
         }
     }
