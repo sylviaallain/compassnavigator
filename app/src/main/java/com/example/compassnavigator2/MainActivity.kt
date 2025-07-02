@@ -7,71 +7,52 @@ import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.os.Bundle
-import android.util.TypedValue
-import android.widget.HorizontalScrollView
-import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
-import android.animation.ValueAnimator
-import android.view.animation.DecelerateInterpolator
+import android.widget.FrameLayout
 
 class MainActivity : AppCompatActivity(), SensorEventListener {
 
     private lateinit var sensorManager: SensorManager
-    private lateinit var compassLayout: LinearLayout
-    private lateinit var compassScrollView: HorizontalScrollView
+    private lateinit var compassContainer: FrameLayout
     private lateinit var headingText: TextView
+
+    private val labelViews = mutableMapOf<String, TextView>()
+    private val labelHeadings = mapOf(
+        "N" to 0f,
+        // Add more here later like: "E" to 90f, "S" to 180f, etc.
+    )
 
     private var accelerometerValues = FloatArray(3)
     private var magnetometerValues = FloatArray(3)
-
-    private val directions = arrayOf("N", "NE", "E", "SE", "S", "SW", "W", "NW")
-
-    private var animator: ValueAnimator? = null
-    private var labelWidthPx: Int = 0
-    private var bufferWidthPx: Int = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
         headingText = findViewById(R.id.headingText)
-        compassLayout = findViewById(R.id.compassLayout)
-        compassScrollView = findViewById(R.id.compassScrollView)
+        compassContainer = findViewById(R.id.compassContainer)
 
-        val labelWidthDp = 300f
-        labelWidthPx = TypedValue.applyDimension(
-            TypedValue.COMPLEX_UNIT_DIP, labelWidthDp, resources.displayMetrics
-        ).toInt()
+        // Wait until layout is measured
+        compassContainer.post {
+            val screenHeight = compassContainer.height
 
-        compassScrollView.post {
-            bufferWidthPx = compassScrollView.width / 2
-
-            compassLayout.removeAllViews()
-
-            // Add buffer at start (empty space to allow centering first label)
-            val startBuffer = TextView(this).apply {
-                layoutParams = LinearLayout.LayoutParams(bufferWidthPx, LinearLayout.LayoutParams.WRAP_CONTENT)
-            }
-            compassLayout.addView(startBuffer)
-
-            // Add direction labels
-            directions.forEach { dir ->
-                val label = TextView(this).apply {
-                    text = dir
+            labelHeadings.forEach { (label, _) ->
+                val labelView = TextView(this).apply {
+                    text = label
                     setTextColor(Color.WHITE)
-                    textSize = 24f
-                    textAlignment = TextView.TEXT_ALIGNMENT_CENTER
-                    layoutParams = LinearLayout.LayoutParams(labelWidthPx, LinearLayout.LayoutParams.WRAP_CONTENT)
+                    textSize = 48f
+                    layoutParams = FrameLayout.LayoutParams(
+                        FrameLayout.LayoutParams.WRAP_CONTENT,
+                        FrameLayout.LayoutParams.WRAP_CONTENT
+                    ).apply {
+                        // Set top margin to half of screen height (approx vertical center)
+                        topMargin = screenHeight / 2
+                    }
                 }
-                compassLayout.addView(label)
+                compassContainer.addView(labelView)
+                labelViews[label] = labelView
             }
-
-            // Add buffer at end (empty space to allow centering last label)
-            val endBuffer = TextView(this).apply {
-                layoutParams = LinearLayout.LayoutParams(bufferWidthPx, LinearLayout.LayoutParams.WRAP_CONTENT)
-            }
-            compassLayout.addView(endBuffer)
         }
     }
 
@@ -107,27 +88,23 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             val azimuth = (Math.toDegrees(orientationAngles[0].toDouble()) + 360) % 360
             headingText.text = "Heading: %.1f°".format(azimuth)
 
-            compassScrollView.post {
-                val degreesPerLabel = 360f / directions.size
-                val indexFloat = azimuth / degreesPerLabel
+            val screenWidth = compassContainer.width
 
-                val exactPosition = indexFloat * labelWidthPx
+            labelHeadings.forEach { (label, targetHeading) ->
+                val labelView = labelViews[label] ?: return@forEach
 
-                // Scroll calculation: buffer + exactPosition - half screen + half label width
-                val targetX = (bufferWidthPx + exactPosition - compassScrollView.width / 2 + labelWidthPx / 2).toInt()
+                val labelWidth = labelView.width
+                val centerX = (screenWidth - labelWidth) / 2f
+                val maxOffset = screenWidth / 2f
 
-                val maxScroll = compassLayout.width - compassScrollView.width
-                val safeTargetX = targetX.coerceIn(0, maxScroll)
+                // How far the phone is rotated away from this label's target heading
+                val diff = ((targetHeading - azimuth + 540) % 360) - 180  // -180 to +180
+                val offsetPx = (diff / 180f) * maxOffset
 
-                animator?.cancel()
-                animator = ValueAnimator.ofInt(compassScrollView.scrollX, safeTargetX).apply {
-                    duration = 200L
-                    interpolator = DecelerateInterpolator()
-                    addUpdateListener { anim ->
-                        compassScrollView.scrollTo(anim.animatedValue as Int, 0)
-                    }
-                    start()
-                }
+                labelView.animate()
+                    .translationX((centerX + offsetPx).toFloat())
+                    .setDuration(200L)
+                    .start()
             }
         }
     }
