@@ -1,15 +1,42 @@
-<?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:gravity="center"
-    android:padding="16dp">
+    android:padding="16dp"
+    android:background="#000000">
 
     <TextView
         android:id="@+id/headingText"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Heading: --"
-        android:textSize="24sp" />
-</LinearLayout>
+        android:textColor="#FFFFFF"
+        android:textSize="20sp"
+        android:layout_alignParentBottom="true"
+        android:layout_centerHorizontal="true"
+        android:layout_marginBottom="32dp" />
+
+    <!-- Compass Scroll Strip -->
+    <HorizontalScrollView
+        android:id="@+id/compassScrollView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_centerInParent="true"
+        android:overScrollMode="never"
+        android:scrollbars="none">
+
+        <LinearLayout
+            android:id="@+id/compassLayout"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal" />
+    </HorizontalScrollView>
+
+    <!-- Static Center Pointer -->
+    <View
+        android:id="@+id/pointer"
+        android:layout_width="4dp"
+        android:layout_height="40dp"
+        android:layout_centerInParent="true"
+        android:background="#FFFFFF" />
+
+</RelativeLayout>
